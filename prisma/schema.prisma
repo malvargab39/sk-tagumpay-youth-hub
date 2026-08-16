@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model announcement {
+  id          Int                 @id @default(autoincrement())
+  authorId    Int
+  title       String
+  content     String              @db.Text
+  status      announcement_status @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime
+  user        user                @relation(fields: [authorId], references: [id], onDelete: Cascade, map: "Announcement_authorId_fkey")
+
+  @@index([authorId], map: "Announcement_authorId_fkey")
+}
+
+model attendance {
+  id             Int               @id @default(autoincrement())
+  registrationId Int               @unique(map: "Attendance_registrationId_key")
+  status         attendance_status @default(PRESENT)
+  checkedInAt    DateTime?
+  notes          String?           @db.Text
+  registration   registration      @relation(fields: [registrationId], references: [id], onDelete: Cascade, map: "Attendance_registrationId_fkey")
+}
+
+model certificate {
+  id                Int          @id @default(autoincrement())
+  youthId           Int
+  eventId           Int?
+  certificateType   String
+  certificateNumber String       @unique(map: "Certificate_certificateNumber_key")
+  issuedAt          DateTime     @default(now())
+  filePath          String?
+  event             event?       @relation(fields: [eventId], references: [id], map: "Certificate_eventId_fkey")
+  youthprofile      youthprofile @relation(fields: [youthId], references: [id], onDelete: Cascade, map: "Certificate_youthId_fkey")
+
+  @@index([eventId], map: "Certificate_eventId_fkey")
+  @@index([youthId], map: "Certificate_youthId_fkey")
+}
+
+model document {
+  id          Int           @id @default(autoincrement())
+  uploaderId  Int
+  title       String
+  description String?       @db.Text
+  fileName    String
+  filePath    String
+  type        document_type @default(GENERAL)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  user        user          @relation(fields: [uploaderId], references: [id], onDelete: Cascade, map: "Document_uploaderId_fkey")
+
+  @@index([uploaderId], map: "Document_uploaderId_fkey")
+}
+
+model event {
+  id           Int            @id @default(autoincrement())
+  programId    Int?
+  title        String
+  description  String?        @db.Text
+  location     String?
+  startDate    DateTime
+  endDate      DateTime?
+  capacity     Int?
+  status       event_status   @default(UPCOMING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  certificate  certificate[]
+  program      program?       @relation(fields: [programId], references: [id], map: "Event_programId_fkey")
+  feedback     feedback[]
+  registration registration[]
+
+  @@index([programId], map: "Event_programId_fkey")
+}
+
+model feedback {
+  id           Int          @id @default(autoincrement())
+  youthId      Int
+  eventId      Int?
+  programId    Int?
+  rating       Int
+  comment      String?      @db.Text
+  createdAt    DateTime     @default(now())
+  event        event?       @relation(fields: [eventId], references: [id], map: "Feedback_eventId_fkey")
+  program      program?     @relation(fields: [programId], references: [id], map: "Feedback_programId_fkey")
+  youthprofile youthprofile @relation(fields: [youthId], references: [id], onDelete: Cascade, map: "Feedback_youthId_fkey")
+
+  @@index([eventId], map: "Feedback_eventId_fkey")
+  @@index([programId], map: "Feedback_programId_fkey")
+  @@index([youthId], map: "Feedback_youthId_fkey")
+}
+
+model officialprofile {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique(map: "OfficialProfile_userId_key")
+  firstName   String
+  middleName  String?
+  lastName    String
+  position    String
+  phoneNumber String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  user        user     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "OfficialProfile_userId_fkey")
+}
+
+model program {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String?        @db.Text
+  status      program_status @default(PLANNED)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime
+  event       event[]
+  feedback    feedback[]
+}
+
+model registration {
+  id           Int                 @id @default(autoincrement())
+  youthId      Int
+  eventId      Int
+  status       registration_status @default(REGISTERED)
+  registeredAt DateTime            @default(now())
+  attendance   attendance?
+  event        event               @relation(fields: [eventId], references: [id], onDelete: Cascade, map: "Registration_eventId_fkey")
+  youthprofile youthprofile        @relation(fields: [youthId], references: [id], onDelete: Cascade, map: "Registration_youthId_fkey")
+
+  @@unique([youthId, eventId], map: "Registration_youthId_eventId_key")
+  @@index([eventId], map: "Registration_eventId_fkey")
+}
+
+model user {
+  id              Int              @id @default(autoincrement())
+  email           String           @unique(map: "User_email_key")
+  passwordHash    String
+  role            user_role        @default(YOUTH)
+  status          user_status      @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  announcement    announcement[]
+  document        document[]
+  officialprofile officialprofile?
+  youthprofile    youthprofile?
+}
+
+model youthprofile {
+  id           Int            @id @default(autoincrement())
+  userId       Int            @unique(map: "YouthProfile_userId_key")
+  firstName    String
+  middleName   String?
+  lastName     String
+  birthDate    DateTime?
+  sex          String?
+  address      String?
+  phoneNumber  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  certificate  certificate[]
+  feedback     feedback[]
+  registration registration[]
+  user         user           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "YouthProfile_userId_fkey")
+}
+
+enum attendance_status {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum program_status {
+  PLANNED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum registration_status {
+  REGISTERED
+  CANCELLED
+  APPROVED
+  REJECTED
+}
+
+enum user_role {
+  YOUTH
+  OFFICIAL
+  ADMIN
+}
+
+enum announcement_status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum user_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum document_type {
+  GENERAL
+  REPORT
+  CERTIFICATE
+  FORM
+  OTHER
+}
+
+enum event_status {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
